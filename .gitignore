@@ -1,0 +1,21 @@
+# Binaries
+bin/
+main
+api
+worker
+
+# Environment variables
+.env
+
+# Go dependencies
+vendor/
+
+# IDEs
+.vscode/
+.idea/
+
+# Docker
+.docker/
+
+# Database data (if any local folders used)
+postgres_data/
