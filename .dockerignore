@@ -1,0 +1,9 @@
+.git
+__debug_bin.exe
+*.exe
+bin/
+vendor/
+node_modules/
+dist/
+.vscode/
+.idea/

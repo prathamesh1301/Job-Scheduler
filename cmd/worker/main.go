@@ -1,16 +1,17 @@
 package main
 
 import (
+	"auth/internals/redis"
 	"context"
 	"os"
-
-	"github.com/redis/go-redis/v9"
 )
 
 func main() {
     ctx := context.Background()
-	rdb := redis.NewClient(&redis.Options{
-		Addr: os.Getenv("REDIS_ADDR"),
-	})
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
+	rdb := redis.NewRedisClient(redisAddr)
 	StartWorker(ctx, rdb, "job_queue")
 }
