@@ -1,102 +1,99 @@
-# 🔐 Advanced Job Scheduler & Auth Service
+<div align="center">
+  <h1>🚀 Distributed Job Scheduler</h1>
+  <p><strong>A fault-tolerant distributed job scheduler built in Go using Redis</strong></p>
+  
+  [![Go](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org)
+  [![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?&style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)
+  [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+  [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+  [![JWT](https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens)](https://jwt.io/)
+</div>
 
-A robust, production-ready microservice architecture engineered in Go. This system combines secure authentication with an asynchronous job scheduling engine using Redis and background workers.
+<br />
 
-## ✨ Key Features & System Design
+> **Overview**: This project demonstrates how modern backend systems handle background tasks reliably and at scale. Instead of executing tasks (like sending emails) synchronously, jobs are queued and processed asynchronously by multiple workers. This improves system responsiveness and enables horizontal scalability.
 
-### 🛡️ State-of-the-Art Security
-*   **Asymmetric Session Management:** Utilizes stateless, short-lived JWTs (Access Tokens) for rapid authorization and stateful, opaque Refresh Tokens for secure re-authentication.
-*   **Cryptographic Hashing at Rest:** Refresh tokens are hashed using `SHA-256` before database persistence. Passwords are salted and hashed using `bcrypt`.
-*   **Multi-Device Session Control:** Supports concurrent logins with a strict **5-session limit per user**, implementing an automated FIFO eviction strategy.
+## 🌟 Key Features
 
-### ⚙️ Asynchronous Job Processing
-*   **Redis-Backed Queue:** Implements a reliable producer-consumer pattern using Redis lists for high-throughput job handling.
-*   **Decoupled Workers:** Background workers run in separate containers, ensuring that heavy tasks (like email delivery) don't block the main API response.
-*   **SMTP Integration:** Robust email delivery system with proper header management and error handling.
-
-### 🏗️ Architecture & Engineering Quality
-*   **Layered Architecture:** Strict separation of concerns using a `Handler → Service → Store` pattern.
-*   **Dockerized Infrastructure:** Fully containerized setup for Postgres, Redis, the API, and the Worker.
-*   **Zero-Downtime Migrations:** Database schema versioning managed via `golang-migrate`.
-
-### 🚀 Tech Stack
-*   **Language:** Go 1.25
-*   **Routing:** [chi](https://github.com/go-chi/chi)
-*   **Database:** PostgreSQL 15 & Redis 7
-*   **Messaging:** Redis Pub/Sub & Lists
-*   **Infrastructure:** Docker & Docker Compose
+- **✅ Asynchronous Job Processing**: Jobs are enqueued in Redis and consumed by independent workers using blocking queues.
+- **🔐 JWT Authentication**: All endpoints (enqueueing jobs, viewing DLQ) are securely protected.
+- **🔁 Exponential Backoff Retries**: Automatic, intelligent retries on failure (`1s → 2s → 4s → 8s`).
+- **☠️ Dead Letter Queue (DLQ)**: Persists failed jobs (with error messages, retry counts, and failure timestamps) to a safe `failed_jobs` space.
+- **⚡ Distributed Workers**: Support for horizontal scaling via Docker; run multiple worker instances to consume jobs in parallel.
 
 ---
 
-## 📂 Project Structure
+## 🏗️ System Architecture
 
+```mermaid
+graph LR
+    Client([Client]) -->|JWT Auth| API[API Server]
+    API -->|Enqueue| Redis[(Redis Queue)]
+    Redis -->|Consume| Worker1[Worker 1]
+    Redis -->|Consume| Worker2[Worker 2]
+    Redis -->|Consume| Worker3[Worker 3]
+    Worker1 -->|Execute| Email[Email Service]
+    Worker1 -.->|Max Retries| DLQ[(Dead Letter Queue)]
+    Worker2 -.->|Max Retries| DLQ
+    Worker3 -.->|Max Retries| DLQ
+```
+
+---
+
+## 🔄 Job Lifecycle
+
+1. **User signs up** (JWT authenticated)
+2. **API enqueues** job to Redis
+3. **Multiple workers** consume jobs from the queue
+4. **Job execution outcomes**:
+   - ✅ **Success** → Job is marked completed
+   - ❌ **Failure** → Retried with exponential backoff
+   - ☠️ **Max retries reached** → Moved to Dead Letter Queue (DLQ)
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Go 1.21+ (if running locally without Docker)
+
+### Running the Project
+
+Start the entire infrastructure (API, Database, Redis, and Worker) with one command:
+
+```bash
+docker-compose up --build
+```
+
+### ⚡ Scaling Workers
+
+Easily demonstrate distributed processing by scaling up the number of workers:
+
+```bash
+docker-compose up --scale worker=3
+```
+
+**Example Output:**
 ```text
-cmd/
-├── api/                    → HTTP Transport & Controllers
-│   ├── main.go             → API Entrypoint
-│   ├── app.go              → Server bootstrap
-│   └── jobHandler.go       → Job submission logic
-└── worker/                 → Background Worker
-    ├── main.go             → Worker Entrypoint
-    └── mail_sender.go      → Email processing logic
+worker-1 | Worker: f82a11f88c4e processing job: job_abc123
+worker-2 | Worker: 7dbf03042e66 processing job: job_def456
+worker-3 | Worker: 607a7ab9242c processing job: job_ghi789
 
-internals/                  → Core Domain Logic
-├── db/                     → Postgres connection management
-├── redis/                  → Redis client & queue utilities
-├── jwt/                    → Token generation & validation
-└── store/                  → Data Access Objects (DAO)
-
-migrations/                 → SQL migration files (Up/Down)
+worker-1 | Successfully sent welcome email to user1@example.com
+worker-2 | Successfully sent welcome email to user2@example.com
 ```
+*👉 Each worker processes different jobs independently, proving horizontal scalability.*
 
 ---
 
-## 🚀 Quick Start
+## 🔌 API Endpoints
 
-### 1. Configure Environment
-Create a `.env` file in the root directory:
-```env
-SMTP_EMAIL=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-JWT_SECRET=your-secure-secret
-```
-
-### 2. Run via Docker
-```bash
-docker compose up --build
-```
-
-### 3. Run Migrations
-```bash
-migrate -path ./migrations -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" up
-```
+| Endpoint | Method | Description | Auth Required |
+|----------|--------|-------------|---------------|
+| `/jobs` | `POST` | Enqueue a new job | 🔐 Bearer Token |
+| `/failed-jobs` | `GET` | Retrieve Dead Letter Queue jobs | 🔐 Bearer Token |
+| `/retry-job` | `POST` | Retry a specific failed job | 🔐 Bearer Token |
 
 ---
-
-## 📡 API Reference
-
-### 1. Job Submission
-`POST /jobs`
-Enqueues a background job (e.g., sending a welcome email).
-
-```bash
-curl -X POST http://localhost:8080/jobs \
-  -H "Content-Type: application/json" \
-  -d '{"email": "user@example.com", "name": "John Doe"}'
-```
-
-### 2. Authentication (Auth)
-*   `POST /signup` - Create a new account.
-*   `POST /login` - Authenticate and get tokens.
-*   `POST /refreshToken` - Rotate your session.
-*   `GET /health` - Protected health check.
-
----
-
-## 🗄️ Database Schema
-
-### Users Table
-Stores hashed credentials and timestamps.
-
-### Refresh Tokens Table
-Stores hashed refresh tokens with a reference to the user, supporting the 5-session limit via FIFO eviction.

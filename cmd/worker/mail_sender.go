@@ -33,6 +33,8 @@ func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string) {
 
 		var job Job
 		json.Unmarshal([]byte(jobJSON), &job)
+		host, _ := os.Hostname()
+		log.Println("Worker:", host, "processing job:", job.Name)
 
 		if err := processJob(job); err != nil {
 			job.Retries++
