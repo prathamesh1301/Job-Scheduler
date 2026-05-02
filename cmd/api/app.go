@@ -47,6 +47,7 @@ func (app *application) getMuxHandler() http.Handler {
 		r.Use(app.ValidateTokenMiddleware)
 		r.Get("/health", app.checkhealth)
 		r.Post("/addJob",app.addJobHandler)
+		r.Get("/failedJobs",app.getFailedJobs)
 	})
 	return mux
 }

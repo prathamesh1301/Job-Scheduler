@@ -1,8 +1,8 @@
 # Binaries
 bin/
-main
-api
-worker
+/main
+/api
+/worker
 
 # Environment variables
 .env

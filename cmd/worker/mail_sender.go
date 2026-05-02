@@ -12,10 +12,10 @@ import (
 )
 
 type Job struct {
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Retries int
-    LastError string
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	Retries   int
+	LastError string `json:"error"`
 }
 
 var MaxRetry int = 3
@@ -36,7 +36,7 @@ func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string) {
 
 		if err := processJob(job); err != nil {
 			job.Retries++
-            job.LastError = err.Error()
+			job.LastError = err.Error()
 			if job.Retries <= MaxRetry {
 				delay := time.Second * time.Duration(1<<job.Retries)
 
@@ -54,8 +54,8 @@ func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string) {
 					}
 				}(job, delay)
 			} else {
-                jobJSON, _ := json.Marshal(job)
-                rdb.Client.LPush(ctx, "failed_jobs", jobJSON)
+				jobJSON, _ := json.Marshal(job)
+				rdb.Client.LPush(ctx, "failed_jobs", jobJSON)
 			}
 		}
 	}
