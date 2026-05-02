@@ -92,8 +92,7 @@ worker-2 | Successfully sent welcome email to user2@example.com
 
 | Endpoint | Method | Description | Auth Required |
 |----------|--------|-------------|---------------|
-| `/jobs` | `POST` | Enqueue a new job | 🔐 Bearer Token |
-| `/failed-jobs` | `GET` | Retrieve Dead Letter Queue jobs | 🔐 Bearer Token |
-| `/retry-job` | `POST` | Retry a specific failed job | 🔐 Bearer Token |
+| `/addJob` | `POST` | Enqueue a new job | 🔐 Bearer Token |
+| `/failedJobs` | `GET` | Retrieve Dead Letter Queue jobs | 🔐 Bearer Token |
 
 ---
