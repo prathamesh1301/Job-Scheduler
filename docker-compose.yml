@@ -1,5 +1,4 @@
 
-
 services:
   database:
     image: postgres:15-alpine
@@ -42,8 +41,6 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@database:5432/postgres?sslmode=disable
       - REDIS_ADDR=redis:6379
-      - SMTP_EMAIL=${SMTP_EMAIL}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
     depends_on:
       - database
       - redis

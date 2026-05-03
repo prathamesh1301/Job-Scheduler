@@ -2,7 +2,9 @@ package main
 
 import (
 	"auth/internals/redis"
+	"auth/internals/store"
 	"context"
+
 	"encoding/json"
 	"fmt"
 	"log"
@@ -20,7 +22,7 @@ type Job struct {
 
 var MaxRetry int = 3
 
-func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string) {
+func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string, store *store.Store) {
 	log.Println("Worker started with name:", workerName)
 	for {
 		result, err := rdb.Client.BRPop(ctx, 0, workerName).Result()
@@ -36,7 +38,7 @@ func StartWorker(ctx context.Context, rdb *redis.Redis, workerName string) {
 		host, _ := os.Hostname()
 		log.Println("Worker:", host, "processing job:", job.Name)
 
-		if err := processJob(job); err != nil {
+		if err := processJob(ctx, job, store,rdb); err != nil {
 			job.Retries++
 			job.LastError = err.Error()
 			if job.Retries <= MaxRetry {
@@ -92,11 +94,34 @@ func sendEmail(to, subject, body string) error {
 	)
 }
 
-func processJob(job Job) error {
+func processJob(ctx context.Context, job Job, store *store.Store,rdb *redis.Redis) error {
+	idempotencyKey := job.Email + job.Name + "welcome"
+	cacheKey := "cache:" + idempotencyKey
+
+    exists, err := rdb.Client.Exists(ctx, cacheKey).Result()
+    if err != nil {
+        log.Println("Redis error:", err)
+    }
+
+    if exists == 1 {
+        log.Println("Cache hit:Job already processed skipping", job.Email)
+        return nil
+    }
+
+	dbexists, err := store.Idempotency.Exists(context.Background(), idempotencyKey)
+	if err != nil {
+		return err
+	}
+	if dbexists {
+		log.Println("Job already processed skipping", job.Email)
+		return nil
+	}
 	if err := sendEmail(job.Email, "Welcome to PrattyHub", fmt.Sprintf("Welcome %s to PrattyHub", job.Name)); err != nil {
 		log.Printf("Failed to send email to %s: %v", job.Email, err)
 		return err
 	}
+	store.Idempotency.Create(ctx, idempotencyKey)
+	rdb.Client.SetNX(ctx, cacheKey, "1", 24*time.Hour)
 	log.Printf("Successfully sent welcome email to %s", job.Email)
 	return nil
 }
