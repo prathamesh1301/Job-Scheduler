@@ -20,7 +20,7 @@
 
 ## 🌟 System Highlights & Engineering Constraints
 
-Built with FAANG-level system design principles in mind, focusing on reliability, horizontal scalability, and data consistency.
+Built with production-grade system design principles in mind, focusing on reliability, horizontal scalability, and data consistency.
 
 - **⚡ Asynchronous Distributed Processing**: Utilizes Redis as an in-memory message broker. Independent worker nodes consume jobs via blocking pop operations (`BRPOP`), eliminating busy-waiting and minimizing latency.
 - **🛡️ Bulletproof Idempotency (L1/L2 Caching Layer)**: Implements exactly-once execution semantics. Employs Redis (`SetNX` with TTL) as an ultra-fast L1 cache to short-circuit duplicates, backed by PostgreSQL as an L2 persistent store with `UNIQUE` constraints to guarantee data integrity.
@@ -35,29 +35,44 @@ Built with FAANG-level system design principles in mind, focusing on reliability
 
 ```mermaid
 graph TD
-    Client([👤 Client]) -->|JWT Auth Request| API[⚡ API Server]
-    API -->|O(1) Enqueue| Redis[(Redis Broker)]
+    Client(["👤 Client"]) -->|"JWT Auth Request"| API["⚡ API Server"]
+    API -->|"O(1) Enqueue"| Redis[("Redis Broker")]
     
     subgraph "Worker Cluster (Horizontally Scalable)"
-        Worker1[Worker Node 1]
-        Worker2[Worker Node 2]
-        WorkerN[Worker Node N]
+        Worker1["Worker Node 1"]
+        Worker2["Worker Node 2"]
+        WorkerN["Worker Node N"]
     end
 
-    Redis -->|BRPOP Consume| Worker1
-    Redis -->|BRPOP Consume| Worker2
-    Redis -->|BRPOP Consume| WorkerN
+    Redis -->|"BRPOP Consume"| Worker1
+    Redis -->|"BRPOP Consume"| Worker2
+    Redis -->|"BRPOP Consume"| WorkerN
 
-    Worker1 -->|Execute Task| External[External Service / SMTP]
-    Worker1 -.->|Retry Exhausted| DLQ[(Dead Letter Queue)]
+    Worker1 -->|"Execute Task"| External["External Service / SMTP"]
+    Worker1 -.->|"Retry Exhausted"| DLQ[("Dead Letter Queue")]
     
     subgraph "Idempotency Layer"
-        RedisCache[(Redis Cache L1)]
-        PostgresDB[(PostgreSQL L2)]
+        RedisCache[("Redis Cache L1")]
+        PostgresDB[("PostgreSQL L2")]
     end
 
-    Worker1 <-->|SetNX TTL Check| RedisCache
-    Worker1 <-->|Persistent Check| PostgresDB
+    Worker1 <-->|"SetNX TTL Check"| RedisCache
+    Worker1 <-->|"Persistent Check"| PostgresDB
+```
+
+### 📂 Codebase Architecture
+
+```text
+├── cmd/
+│   ├── api/          # Main API server entrypoint & HTTP handlers
+│   └── worker/       # Worker node entrypoint & background processing logic
+├── internals/
+│   ├── db/           # Database connection & pooling setup
+│   ├── redis/        # Redis client & queue management
+│   └── store/        # Data access layer (PostgreSQL repositories)
+├── migrations/       # SQL schema migrations (up/down)
+├── docker-compose.yml # Container orchestration
+└── Dockerfile        # Multi-stage build for Go services
 ```
 
 ---
